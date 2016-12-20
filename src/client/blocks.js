@@ -1119,6 +1119,7 @@ InputSlotMorph.prototype.rpcNames = function () {
         dict = {},
         name;
 
+    // TODO: Update this to simply retrieve them from the IDE/Stage
     for (var i = rpcs.length; i--;) {
         name = rpcs[i].replace('/', '');
         dict[name] = name;

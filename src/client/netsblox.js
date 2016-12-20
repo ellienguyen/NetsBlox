@@ -625,6 +625,11 @@ NetsBloxMorph.prototype.projectMenu = function () {
 
     menu.addItem(
         'Services...',
+        // TODO: change this to have a list of display names for the service.
+        // Upon selecting one of them, the stage should record that it imported
+        // the given service...
+        //
+        // However, this is not easy to "unimport" them...
         createMediaMenu(
             'rpc',
             function loadLib(file, name) {
