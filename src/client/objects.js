@@ -219,21 +219,21 @@ SpriteMorph.prototype.initBlocks = function () {
         type: 'reporter',
         category: 'services',
         spec: 'call %s with %s',
-        defaults: ['weather']
+        defaults: []
     };
 
     SpriteMorph.prototype.blocks.getJSFromRPCDropdown = {  // primitive JSON response
         type: 'reporter',
         category: 'services',
         spec: 'call %rpcNames / %rpcActions with %s',
-        defaults: ['weather']
+        defaults: []
     };
 
     SpriteMorph.prototype.blocks.getJSFromRPCStruct = {  // primitive JSON response
         type: 'reporter',
         category: 'services',
         spec: 'call %rpcNames / %rpcMethod',
-        defaults: ['weather']
+        defaults: []
     };
 
     SpriteMorph.prototype.blocks.getCostumeFromRPC = {
@@ -625,6 +625,7 @@ SpriteMorph.prototype.blockTemplates = function (category) {
         blocks.push(block('getProjectIds'));
         blocks.push('-');
 
+        // TODO: Only add this if there are services imported
         blocks.push(block('getJSFromRPCStruct'));
         if (this.world().isDevMode) {
             blocks.push(block('getCostumeFromRPC'));
