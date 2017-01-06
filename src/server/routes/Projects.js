@@ -221,7 +221,7 @@ module.exports = [
 
             // Check for changes from other users
             log(`${req.session.socket.username} has ${hasOtherUserEdits ? '' : 'no'} tainted roles`);
-            res.json(`hasOtherEdits=${hasOtherUserEdits}`);
+            res.send(`hasOtherEdits=${hasOtherUserEdits}`);
         }
     },
     {
@@ -274,6 +274,24 @@ module.exports = [
                 }
                 return res.status(404);
             });
+        }
+    },
+    {
+        Service: 'hasConflictingStoredProject',
+        Parameters: 'socketId',
+        Method: 'post',
+        Note: '',
+        middleware: ['isLoggedIn', 'hasSocket', 'noCache', 'setUser'],
+        Handler: function(req, res) {
+            var socket = this.sockets[req.body.socketId],
+                roomName = socket._room.name,
+                user = req.session.user,
+                rooms = getRoomsNamed.call(this, roomName, user),
+                hasConflicting = rooms.stored && !rooms.areSame;
+
+            log(`${user.username} is checking if project "${roomName}" conflicts w/ any saved names (${hasConflicting})`);
+            // Check if it is actually the same - do the originTime's match?
+            return res.send(`hasConflicting=${!!hasConflicting}`);
         }
     },
     {
