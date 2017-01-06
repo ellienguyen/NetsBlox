@@ -28,6 +28,35 @@ var noCache = function(req, res, next) {
     return next();
 };
 
+var setUserAndSocket = function(req, res, next) {
+    var afterLogin = function(req, res) {
+        var socketId = (req.body && req.body.socketId) ||
+            (req.params && req.params.socketId) ||
+            (req.query && req.query.socketId);
+
+        if (socketId && server.sockets[socketId]) {
+            req.session.socket = server.sockets[socketId];
+        } else {
+            hasSocket(req, res, next);
+        }
+    };
+
+    return setUser(req, res, afterLogin, true);
+};
+
+var hasRoom = function(req, res, next) {
+    setUserAndSocket(req, res, function(req, res) {
+        var socket = req.session.socket;
+        if (socket._room) {
+            next();
+        } else {
+            logger.error(`No room found for ${socket.uuid} - ${socket.username} (${req.get('User-Agent')})`);
+            return res.status(400)
+                .send('ERROR: Could not find connected room.');
+        }
+    });
+};
+
 // Access control and auth
 var tryLogIn = function(req, res, cb, skipRefresh) {
     var cookie = req.cookies[COOKIE_ID];
@@ -128,10 +157,18 @@ var loadUser = function(username, res, next) {
 };
 
 var setUser = function(req, res, next) {
-    loadUser(req.session.username, res, user => {
-        req.session.user = user;
-        next();
-    });
+    var afterLogin = function(req, res) {
+        loadUser(req.session.username, res, user => {
+            req.session.user = user;
+            next();
+        });
+    };
+
+    if (!req.session || !req.session.username) {
+        tryLogIn(req, res, afterLogin, true);
+    } else {
+        afterLogin(req, res);
+    }
 };
 
 var setUsername = function(req, res, cb) {
@@ -143,9 +180,11 @@ module.exports = {
     noCache,
     isLoggedIn,
     tryLogIn,
+    hasRoom,
     saveLogin,
     loadUser,
     setUser,
+    setUserAndSocket,
     setUsername,
 
     // additional

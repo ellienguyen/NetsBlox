@@ -188,12 +188,21 @@ module.exports = [
             }
         }
     },
-    //{
-        //Service: 'changedByOthers',
-    //},
-    // TODO: Add a service for checking if there are changes from other users
-    // I can probably just check if the room has been 'tainted' by non-owners
-    // TODO
+    {
+        Service: 'changedByOthers',
+        Parameters: 'socketId',
+        Method: 'Get',
+        middleware: ['setUserAndSocket', 'hasRoom'],
+        Handler: function(req, res) {
+            var room = req.session.socket._room,
+                taintedRoles = Object.keys(room.taintedProjects),
+                hasOtherUserEdits = taintedRoles.length > 0;
+
+            // Check for changes from other users
+            log(`${req.session.socket.username} has ${hasOtherUserEdits ? '' : 'no'} tainted roles`);
+            res.json(hasOtherUserEdits);
+        }
+    },
     {
         Service: 'getProjectList',
         Parameters: '',
