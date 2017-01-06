@@ -903,8 +903,34 @@ NetsBloxMorph.prototype.save = function () {
             } else {
                 myself.saveProjectsBrowser();
             }
+        } else {  // ask the user if he/she wants to include the 
+            myself.promptSaveWithOtherChanges();
         }
     });
+};
+
+NetsBloxMorph.prototype.promptSaveWithOtherChanges = function () {
+    var dialog = new DialogBoxMorph(null, nop),
+        choices = {};
+
+    choices['All Changes'] = function() {
+        console.log('saving all changes!');
+        // TODO
+        dialog.destroy();
+    };
+    choices['Only My Changes'] = function() {
+        console.log('saving only mine!');
+        // TODO
+        dialog.destroy();
+    };
+
+    dialog.ask(
+        localize('User Changes Detected'),
+        localize('One or more roles have been edited by other users.\nWould you like to save ' +
+            'all the edits or just your own?'),
+        this.world(),
+        choices
+    );
 };
 
 NetsBloxMorph.prototype.saveProjectToCloud = function (name) {
