@@ -17,7 +17,8 @@ class ActiveRoom {
 
         // Seats
         this.roles = {};  // actual occupants
-        this.cachedProjects = {};  // 
+        this.cachedProjects = {};
+        this.taintedProjects = {};  // roles with edits by non-owners
 
         this.owner = owner;
 
@@ -58,6 +59,7 @@ class ActiveRoom {
 
         // Copy the data from each project
         fork.cachedProjects = _.cloneDeep(this.cachedProjects);
+        fork.taintedProjects = _.cloneDeep(this.taintedProjects);
 
         // Notify the socket of the fork
         socket.send({
@@ -245,6 +247,7 @@ class ActiveRoom {
         delete this.roles[roleId];
         this.roles[newId] = socket;
         this.cachedProjects[newId] = this.cachedProjects[roleId];
+        this.taintedProjects[newId] = this.taintedProjects[roleId];
 
         this.onRolesChanged();
         this.check();
@@ -262,7 +265,8 @@ class ActiveRoom {
 
     /////////// Caching and Saving ///////////
     cache (role, callback) {
-        var socket = this.roles[role];
+        var socket = this.roles[role],
+            isOwner;
 
         if (!socket) {
             let err = 'No socket in ' + role;
@@ -271,16 +275,22 @@ class ActiveRoom {
         }
         this._logger.trace('caching ' + role);
         // Get the project json from the socket
+        isOwner = socket.isOwner();
         socket.getProjectJson((err, project) => {
             if (err) {
                 return callback(err);
             }
-            this.cachedProjects[role] = project;
+            if (isOwner) {
+                this.cachedProjects[role] = project;
+            } else {
+                this.taintedProjects[role] = project;
+            }
             return callback(err);
         });
     }
 
     // Retrieve a dictionary of role => project content
+    // TODO: Add option for including tainted projects
     collectProjects(callback) {
         // Collect the projects from the websockets
         var sockets = this.sockets();

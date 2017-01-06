@@ -77,6 +77,11 @@ class Room extends DataWrapper {
             this._logger.error(`Cannot save room "${this.name}" - no user`);
             return callback('Can\'t save table w/o user');
         }
+
+        // TODO: Add support for not saving 'tainted' roles
+        // I should store the 'tainted' roles differently from simply cached roles
+        // If the user wants to include tainted roles, these should take priority
+        // over the cached roles.
         this.collectProjects((err, content) => {
             if (err) {
                 this._logger.error('could not save room: ' + err);

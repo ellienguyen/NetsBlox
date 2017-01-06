@@ -188,6 +188,12 @@ module.exports = [
             }
         }
     },
+    //{
+        //Service: 'changedByOthers',
+    //},
+    // TODO: Add a service for checking if there are changes from other users
+    // I can probably just check if the room has been 'tainted' by non-owners
+    // TODO
     {
         Service: 'getProjectList',
         Parameters: '',
