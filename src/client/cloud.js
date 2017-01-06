@@ -212,7 +212,13 @@ NetCloud.prototype.socketId = function () {
 };
 
 // Override
-NetCloud.prototype.saveProject = function (ide, callBack, errorCall, overwrite) {
+NetCloud.prototype.saveProject = function (
+    ide,
+    callBack,
+    errorCall,
+    overwrite,
+    allEdits
+) {
     var myself = this;
     myself.reconnect(
         function () {
@@ -224,8 +230,8 @@ NetCloud.prototype.saveProject = function (ide, callBack, errorCall, overwrite) 
                 errorCall,
                 [
                     myself.socketId(),
-                    overwrite === true
-                    // TODO: Add includeTainted option!
+                    overwrite === true,
+                    allEdits === true
                 ]
             );
         },

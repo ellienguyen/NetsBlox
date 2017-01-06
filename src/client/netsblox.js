@@ -835,21 +835,6 @@ NetsBloxMorph.prototype.openCloudDataString = function (model, parsed) {
     ]);
 };
 
-// Serialize a project and save to the browser.
-NetsBloxMorph.prototype.rawSaveProject = function (name) {
-    this.showMessage('Saving', 3);
-
-    if (name) {
-        this.room.name = name;
-    }
-
-    // Trigger server export of all roles
-    this.sockets.sendMessage({
-        type: 'export-room',
-        action: 'save'
-    });
-};
-
 NetsBloxMorph.prototype.saveRoomLocal = function (roles) {
     var str,
         name = this.room.name;
@@ -882,58 +867,89 @@ NetsBloxMorph.prototype.openProject = function (name) {
     }
 };
 
-// TODO: Check if there have been changes
 NetsBloxMorph.prototype.save = function () {
     var myself = this;
 
     SnapCloud.hasOtherUserEdits(function(hasOtherEdits) {
         console.log('hasOtherEdits:', hasOtherEdits);
         if (!hasOtherEdits) {
-            if (myself.source === 'examples') {
-                myself.source = 'local'; // cannot save to examples
-            }
-            if (myself.projectName) {
-                if (myself.source === 'local') { // as well as 'examples'
-                    // NetsBlox changes - start
-                    myself.saveProject(myself.room.name);
-                    // NetsBlox changes - end
-                } else { // 'cloud'
-                    myself.saveProjectToCloud(myself.projectName);
-                }
-            } else {
-                myself.saveProjectsBrowser();
-            }
+            myself.rawSave(true);
         } else {  // ask the user if he/she wants to include the 
             myself.promptSaveWithOtherChanges();
         }
     });
 };
 
+NetsBloxMorph.prototype.rawSave = function (allEdits) {
+    if (this.source === 'examples') {
+        this.source = 'local'; // cannot save to examples
+    }
+    if (this.projectName) {
+        if (this.source === 'local') { // as well as 'examples'
+            this.saveProject(this.room.name, allEdits);
+        } else { // 'cloud'
+            this.saveProjectToCloud(this.projectName, allEdits);
+        }
+    } else {
+        this.saveProjectsBrowser();  // TODO: Include allEdits
+    }
+};
+
 NetsBloxMorph.prototype.promptSaveWithOtherChanges = function () {
-    var dialog = new DialogBoxMorph(null, nop),
+    var myself = this,
+        dialog = new DialogBoxMorph(null, nop),
         choices = {};
 
     choices['All Changes'] = function() {
-        console.log('saving all changes!');
-        // TODO
+        myself.rawSave(true);
         dialog.destroy();
     };
     choices['Only My Changes'] = function() {
-        console.log('saving only mine!');
-        // TODO
+        myself.rawSave(false);
         dialog.destroy();
     };
 
     dialog.ask(
         localize('User Changes Detected'),
         localize('One or more roles have been edited by other users.\nWould you like to save ' +
-            'all the edits or just your own?'),
+            'all the changes or just your own?'),
         this.world(),
         choices
     );
 };
 
-NetsBloxMorph.prototype.saveProjectToCloud = function (name) {
+NetsBloxMorph.prototype.saveProject = function (name, allEdits) {
+    var myself = this;
+    this.nextSteps([
+        function () {
+            myself.showMessage('Saving...');
+        },
+        function () {
+            // NetsBlox addition: start
+            myself.rawSaveProject(name, allEdits);
+            // NetsBlox addition: end
+        }
+    ]);
+};
+
+// Serialize a project and save to the browser.
+NetsBloxMorph.prototype.rawSaveProject = function (name, allEdits) {
+    this.showMessage('Saving', 3);
+
+    if (name) {
+        this.room.name = name;
+    }
+
+    // Trigger server export of all roles
+    this.sockets.sendMessage({
+        type: 'export-room',
+        allEdits: allEdits,
+        action: 'save'
+    });
+};
+
+// TODO: Override saveCloudProject?
+NetsBloxMorph.prototype.saveProjectToCloud = function (name, allEdits) {
     var myself = this,
         overwriteExisting;
 
@@ -955,7 +971,8 @@ NetsBloxMorph.prototype.saveProjectToCloud = function (name) {
                     }
                 },
                 myself.cloudError(),
-                overwrite
+                overwrite,
+                allEdits
             );
         }
     };
@@ -964,6 +981,7 @@ NetsBloxMorph.prototype.saveProjectToCloud = function (name) {
     SnapCloud.hasConflictingStoredProject(
         function(hasConflicting) {
             if (!hasConflicting) {
+                // TODO: include allEdits?
                 return IDE_Morph.prototype.saveProjectToCloud.call(myself, name);
             } else {  // doesn't match the stored version!
                 var dialog = new DialogBoxMorph(null, function() {
