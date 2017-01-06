@@ -366,7 +366,7 @@ NetsBloxSocket.MessageHandlers = {
     // Retrieve the json for each project and respond
     'export-room': function(msg) {
         if (this.hasRoom()) {
-            this._room.collectProjects((err, projects) => {
+            this._room.collectProjects(msg.allEdits, (err, projects) => {
                 if (err) {
                     this._logger.error(`Could not collect projects from ${this._room.name}`);
                     return;

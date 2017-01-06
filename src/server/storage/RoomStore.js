@@ -35,44 +35,15 @@ class Room extends DataWrapper {
     }
 
     collectProjects(includeTainted, callback) {
-        // Collect the projects from the websockets
-        var sockets = this._room.sockets()
-            .filter(socket => includeTainted || socket.isOwner());
+        return this._room.collectProjects(includeTainted, (err, roles) => {
+            if (err) return callback(err);
 
-        // Add saving the cached projects
-        async.map(sockets, (socket, callback) => {
-            socket.getProjectJson(callback);
-        }, (err, projects) => {
-            if (err) {
-                return callback(err);
-            }
-
-            // create the room from the projects
-            var roles = Object.keys(this._room.roles),
-                socket,
-                k,
-                content = {
-                    owner: this._room.owner.username,
-                    name: this._room.name,
-                    originTime: this._room.originTime || Date.now(),
-                    roles: {}
-                };
-
-            for (var i = roles.length; i--;) {
-                socket = this._room.roles[roles[i]];
-
-                k = sockets.indexOf(socket);
-                if (k !== -1) {
-                    // role content
-                    content.roles[roles[i]] = projects[k];
-                } else if (includeTainted) {
-                    content.roles[roles[i]] = this._room.taintedProjects[roles[i]] ||
-                        this._room.cachedProjects[roles[i]] || null;
-                } else {
-                    content.roles[roles[i]] = this._room.cachedProjects[roles[i]] || null;
-                }
-            }
-            callback(null, content);
+            return {
+                owner: this._room.owner.username,
+                name: this._room.name,
+                originTime: this._room.originTime || Date.now(),
+                roles: roles
+            };
         });
     }
 

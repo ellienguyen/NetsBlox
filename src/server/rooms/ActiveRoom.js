@@ -284,13 +284,10 @@ class ActiveRoom {
     }
 
     // Retrieve a dictionary of role => project content
-    // TODO: Add option for including tainted projects
-    collectProjects(callback) {
+    collectProjects(includeTainted, callback) {
         // Collect the projects from the websockets
-        var sockets = this.sockets();
-
-        // TODO: If not including tainted projects, check if the socket
-        // is an owner first
+        var sockets = this.sockets()
+            .filter(socket => includeTainted || socket.isOwner());
 
         // Add saving the cached projects
         async.map(sockets, (socket, callback) => {
@@ -304,8 +301,7 @@ class ActiveRoom {
             var roles = Object.keys(this.roles),
                 socket,
                 k,
-                content = {
-                };
+                content = {};
 
             for (var i = roles.length; i--;) {
                 socket = this.roles[roles[i]];
@@ -313,6 +309,9 @@ class ActiveRoom {
                 k = sockets.indexOf(socket);
                 if (k !== -1) {
                     content[roles[i]] = projects[k];
+                } else if (includeTainted) {
+                    content[roles[i]] = this.taintedProjects[roles[i]] ||
+                        this.cachedProjects[roles[i]] || null;
                 } else {  // socket is closed -> use the cache
                     content[roles[i]] = this.cachedProjects[roles[i]] || null;
                 }
