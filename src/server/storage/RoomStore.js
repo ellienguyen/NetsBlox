@@ -34,9 +34,11 @@ class Room extends DataWrapper {
         return new Room(params);
     }
 
-    collectProjects(callback) {
+    collectProjects(includeTainted, callback) {
         // Collect the projects from the websockets
-        var sockets = this._room.sockets();
+        var sockets = this._room.sockets()
+            .filter(socket => includeTainted || socket.isOwner());
+
         // Add saving the cached projects
         async.map(sockets, (socket, callback) => {
             socket.getProjectJson(callback);
@@ -63,6 +65,9 @@ class Room extends DataWrapper {
                 if (k !== -1) {
                     // role content
                     content.roles[roles[i]] = projects[k];
+                } else if (includeTainted) {
+                    content.roles[roles[i]] = this._room.taintedProjects[roles[i]] ||
+                        this._room.cachedProjects[roles[i]] || null;
                 } else {
                     content.roles[roles[i]] = this._room.cachedProjects[roles[i]] || null;
                 }
@@ -72,7 +77,7 @@ class Room extends DataWrapper {
     }
 
     // Override
-    save(callback) {
+    save(includeTainted, callback) {
         if (!this._user) {
             this._logger.error(`Cannot save room "${this.name}" - no user`);
             return callback('Can\'t save table w/o user');
@@ -82,7 +87,7 @@ class Room extends DataWrapper {
         // I should store the 'tainted' roles differently from simply cached roles
         // If the user wants to include tainted roles, these should take priority
         // over the cached roles.
-        this.collectProjects((err, content) => {
+        this.collectProjects(includeTainted, (err, content) => {
             if (err) {
                 this._logger.error('could not save room: ' + err);
                 return callback(err);

@@ -225,6 +225,7 @@ NetCloud.prototype.saveProject = function (ide, callBack, errorCall, overwrite) 
                 [
                     myself.socketId(),
                     overwrite === true
+                    // TODO: Add includeTainted option!
                 ]
             );
         },
@@ -450,6 +451,28 @@ NetCloud.prototype.isProjectActive = function (name, callBack, errorCall) {
                 },
                 errorCall,
                 [name]
+            );
+        },
+        errorCall
+    );
+};
+
+NetCloud.prototype.hasOtherUserEdits = function (callBack, errorCall) {
+    var myself = this;
+
+    this.reconnect(
+        function () {
+            myself.callService(
+                'hasOtherUserEdits',
+                function(response) {
+                    var hasOtherEdits = response[0].hasOtherEdits === 'true';
+
+                    return callBack(hasOtherEdits);
+                },
+                errorCall,
+                [
+                    myself.socketId()
+                ]
             );
         },
         errorCall

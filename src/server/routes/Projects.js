@@ -116,12 +116,12 @@ var createCopyFrom = function(user, project) {
     return copy;
 };
 
-var saveRoom = function (activeRoom, socket, user, res) {
+var saveRoom = function (activeRoom, socket, user, includeTainted, res) {
     log(`saving entire room for ${socket.username}`);
     // Create the room object
     var room = this.storage.rooms.new(user, activeRoom);
     room.setActiveRole(socket.roleId);
-    room.save(function(err) {
+    room.save(includeTainted, function(err) {
         if (err) {
             error(`room save failed for room "${activeRoom.name}" initiated by "${user.username}"`);
             return res.status(500).send('ERROR: ' + err);
@@ -136,7 +136,7 @@ var saveRoom = function (activeRoom, socket, user, res) {
 module.exports = [
     {
         Service: 'saveProject',
-        Parameters: 'socketId,overwrite',
+        Parameters: 'socketId,overwrite,includeTainted',
         Method: 'Post',
         Note: '',
         middleware: ['hasSocket', 'isLoggedIn', 'setUser'],
@@ -147,6 +147,7 @@ module.exports = [
 
                 activeRoom = socket._room,
                 user = req.session.user,
+                includeTainted = req.body.includeTainted === 'true',
                 roomName,
                 rooms;
 
@@ -167,13 +168,32 @@ module.exports = [
                 }
 
                 if (rooms.areSame) {  // overwrite
-                    saveRoom.call(this, activeRoom, socket, user, res);
+                    saveRoom.call(this,
+                        activeRoom,
+                        socket,
+                        user,
+                        includeTainted,
+                        res
+                    );
                 } else if (req.body.overwrite === 'true') {  // overwrite
-                    saveRoom.call(this, activeRoom, socket, user, res);
+                    saveRoom.call(this,
+                        activeRoom,
+                        socket,
+                        user,
+                        includeTainted,
+                        res
+                    );
                 } else {  // rename
                     activeRoom.changeName();
                     activeRoom.originTime = Date.now();
-                    saveRoom.call(this, activeRoom, socket, user, res);
+                    saveRoom.call(
+                        this,
+                        activeRoom,
+                        socket,
+                        user,
+                        includeTainted,
+                        res
+                    );
                 }
             } else {
                 log(`caching ${socket.roleId} for ${socket.username}`);
@@ -189,18 +209,19 @@ module.exports = [
         }
     },
     {
-        Service: 'changedByOthers',
+        Service: 'hasOtherUserEdits',
         Parameters: 'socketId',
-        Method: 'Get',
+        Method: 'post',
         middleware: ['setUserAndSocket', 'hasRoom'],
         Handler: function(req, res) {
             var room = req.session.socket._room,
                 taintedRoles = Object.keys(room.taintedProjects),
-                hasOtherUserEdits = taintedRoles.length > 0;
+                isOwner = req.session.socket.isOwner(),
+                hasOtherUserEdits = taintedRoles.length > 0 && isOwner;
 
             // Check for changes from other users
             log(`${req.session.socket.username} has ${hasOtherUserEdits ? '' : 'no'} tainted roles`);
-            res.json(hasOtherUserEdits);
+            res.json(`hasOtherEdits=${hasOtherUserEdits}`);
         }
     },
     {

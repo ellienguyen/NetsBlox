@@ -110,10 +110,6 @@ class ActiveRoom {
         return name;
     }
 
-    save() {
-        // TODO: Remove this fn
-    }
-
     move (params) {
         var src = params.src || params.socket.roleId,
             socket = params.socket,
@@ -259,8 +255,6 @@ class ActiveRoom {
         var msg = this.getStateMsg();
 
         this.sockets().forEach(socket => socket.send(msg));
-
-        this.save();
     }
 
     /////////// Caching and Saving ///////////
@@ -294,6 +288,10 @@ class ActiveRoom {
     collectProjects(callback) {
         // Collect the projects from the websockets
         var sockets = this.sockets();
+
+        // TODO: If not including tainted projects, check if the socket
+        // is an owner first
+
         // Add saving the cached projects
         async.map(sockets, (socket, callback) => {
             socket.getProjectJson(callback);

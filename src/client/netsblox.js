@@ -895,21 +895,29 @@ NetsBloxMorph.prototype.openProject = function (name) {
     }
 };
 
+// TODO: Check if there have been changes
 NetsBloxMorph.prototype.save = function () {
-    if (this.source === 'examples') {
-        this.source = 'local'; // cannot save to examples
-    }
-    if (this.projectName) {
-        if (this.source === 'local') { // as well as 'examples'
-            // NetsBlox changes - start
-            this.saveProject(this.room.name);
-            // NetsBlox changes - end
-        } else { // 'cloud'
-            this.saveProjectToCloud(this.projectName);
+    var myself = this;
+
+    SnapCloud.hasOtherUserEdits(function(hasOtherEdits) {
+        console.log('hasOtherEdits:', hasOtherEdits);
+        if (!hasOtherEdits) {
+            if (myself.source === 'examples') {
+                myself.source = 'local'; // cannot save to examples
+            }
+            if (myself.projectName) {
+                if (myself.source === 'local') { // as well as 'examples'
+                    // NetsBlox changes - start
+                    myself.saveProject(myself.room.name);
+                    // NetsBlox changes - end
+                } else { // 'cloud'
+                    myself.saveProjectToCloud(myself.projectName);
+                }
+            } else {
+                myself.saveProjectsBrowser();
+            }
         }
-    } else {
-        this.saveProjectsBrowser();
-    }
+    });
 };
 
 NetsBloxMorph.prototype.saveProjectToCloud = function (name) {

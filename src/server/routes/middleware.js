@@ -29,13 +29,14 @@ var noCache = function(req, res, next) {
 };
 
 var setUserAndSocket = function(req, res, next) {
-    var afterLogin = function(req, res) {
+    var afterLogin = function() {
         var socketId = (req.body && req.body.socketId) ||
             (req.params && req.params.socketId) ||
             (req.query && req.query.socketId);
 
         if (socketId && server.sockets[socketId]) {
             req.session.socket = server.sockets[socketId];
+            next();
         } else {
             hasSocket(req, res, next);
         }
@@ -45,7 +46,7 @@ var setUserAndSocket = function(req, res, next) {
 };
 
 var hasRoom = function(req, res, next) {
-    setUserAndSocket(req, res, function(req, res) {
+    setUserAndSocket(req, res, function() {
         var socket = req.session.socket;
         if (socket._room) {
             next();
@@ -157,7 +158,7 @@ var loadUser = function(username, res, next) {
 };
 
 var setUser = function(req, res, next) {
-    var afterLogin = function(req, res) {
+    var afterLogin = function() {
         loadUser(req.session.username, res, user => {
             req.session.user = user;
             next();
