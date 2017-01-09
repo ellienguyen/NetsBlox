@@ -338,6 +338,8 @@ ActiveRoom.fromStore = function(logger, socket, data) {
 
     // Add the roles
     Object.keys(room.cachedProjects).forEach(role => room.roles[role] = null);
+
+    room._logger.debug(`loading ${room.uuid} from storage`);
     return room;
 };
 

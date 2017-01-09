@@ -120,7 +120,6 @@ class NetsBloxSocket {
             return this.changeSeats(role);
         }
 
-        this._logger.log(`joining ${room.uuid}/${role} from ${this.roleId}`);
         if (this._room && this._room.uuid !== room.uuid) {
             this.leave();
         }

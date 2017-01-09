@@ -45,7 +45,6 @@ RoomManager.prototype.forkRoom = function(params) {
         return;
     }
 
-    this._logger.trace(`${params.roleId} is forking room`);
     this._logger.trace(`${socket.username} is forking room ${room.uuid}`);
 
     // Create the new room
