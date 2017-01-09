@@ -2,6 +2,7 @@
 
 var DataWrapper = require('./Data'),
     async = require('async'),
+    _ = require('lodash'),
     ObjectId = require('mongodb').ObjectId;
 
 // Every time a room is saved, it is saved for some user AND in the global store
@@ -38,12 +39,12 @@ class Room extends DataWrapper {
         return this._room.collectProjects(includeTainted, (err, roles) => {
             if (err) return callback(err);
 
-            return {
+            callback(null, {
                 owner: this._room.owner.username,
                 name: this._room.name,
                 originTime: this._room.originTime || Date.now(),
                 roles: roles
-            };
+            });
         });
     }
 
@@ -68,6 +69,13 @@ class Room extends DataWrapper {
                 content.activeRole = this.activeRole;
             }
             this._content = content;
+
+            if (includeTainted) {
+                _.merge(this._room.cachedProjects, this._room.taintedProjects);
+            }
+            this._room.taintedProjects = {};
+
+            this._logger.trace('saving room: ' + this._room.uuid);
             this._save(callback);
         });
     }
