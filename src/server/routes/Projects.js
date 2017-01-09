@@ -217,11 +217,25 @@ module.exports = [
             var room = req.session.socket._room,
                 taintedRoles = Object.keys(room.taintedProjects),
                 isOwner = req.session.socket.isOwner(),
-                hasOtherUserEdits = taintedRoles.length > 0 && isOwner;
+                hasOtherUserEdits = taintedRoles.length > 0,
+                nonOwners = room.sockets().filter(socket => !socket.isOwner()),
+                hasNonOwner = !!nonOwners.length,
+                username = req.session.socket.username;
+
+            if (!isOwner) {
+                return res.send('hasOtherEdits=false');
+            }
 
             // Check for changes from other users
-            log(`${req.session.socket.username} has ${hasOtherUserEdits ? '' : 'no'} tainted roles`);
-            res.send(`hasOtherEdits=${hasOtherUserEdits}`);
+            if (hasOtherUserEdits) {
+                log(`${room.uuid} has tainted roles: ${taintedRoles.join(', ')}`);
+            } else if (hasNonOwner) {
+                log(`${room.uuid} has non-owner sockets: ${nonOwners.map(s => s.username).join(', ')}`);
+            } else {
+                log(`${room.uuid} has no non-owner edits!`);
+            }
+
+            res.send(`hasOtherEdits=${hasNonOwner || hasOtherUserEdits}`);
         }
     },
     {
