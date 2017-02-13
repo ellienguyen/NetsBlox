@@ -67,7 +67,11 @@ class User extends DataWrapper {
             this.hash = hash(password);
         }
         delete this.password;
+        // TODO: store the rooms in a different collection
         this.rooms = this.rooms || this.tables || [];
+
+        // Save all the rooms?
+        // TODO
     }
 
     recordLogin() {
@@ -103,4 +107,7 @@ class User extends DataWrapper {
     }
 
 }
+
+User.prototype.IGNORE_KEYS = DataWrapper.prototype.IGNORE_KEYS.concat(['rooms']);
+
 module.exports = UserStore;

@@ -97,12 +97,26 @@ var getArgumentsFor = function(fn) {
         .filter(arg => !!arg);
 };
 
+var path = require('path'),
+    MEDIA_ROOT = process.env.MEDIA_ROOT || path.join(__dirname, '..', '..', 'media');
+
+var getMediaPath = (username, role) => {
+    return path.join(
+        MEDIA_ROOT,
+        username,
+        role.ProjectUuid,
+        role.ProjectName
+    );
+};
+
 module.exports = {
     serialize: serialize,
     serializeArray: serializeArray,
     serializeRole: serializeRole,
     joinActiveProject: joinActiveProject,
     uuid: uuid,
+
+    getMediaPath: getMediaPath,
 
     getArgumentsFor: getArgumentsFor
 

@@ -13,7 +13,7 @@ var Storage = function(logger) {
 };
 
 Storage.prototype.connect = function() {
-    var mongoURI = process.env.MONGO_URI || process.env.MONGOLAB_URI || 'mongodb://localhost:27017';
+    var mongoURI = process.env.MONGO_URI || process.env.MONGOLAB_URI || 'mongodb://localhost:27017/netsblox';
     return MongoClient.connect(mongoURI)
         .then(db => {
             this.users = new UserStore(this._logger, db);

@@ -1,8 +1,11 @@
 'use strict';
 
 var DataWrapper = require('./data'),
-    async = require('async'),
-    ObjectId = require('mongodb').ObjectId;
+    Q = require('q'),
+    fse = require('fs-extra'),
+    utils = require('../server-utils'),
+    exists = require('exists-file'),
+    async = require('async');
 
 // Every time a room is saved, it is saved for some user AND in the global store
 // Schema:
@@ -17,9 +20,14 @@ class Room extends DataWrapper {
             delete params.data.seats;
         }
         super(params.db, params.data || {});
+        this._roleDb = params.roleDb;
         this._logger = params.logger.fork((this._room ? this._room.uuid : this.uuid));
         this._user = params.user;
         this._room = params.room;
+
+        // Load the media from fs
+        // TODO: Retrieve the media from the fs
+        this._loadRoleMedia();
     }
 
     fork(room) {
@@ -157,6 +165,13 @@ class Room extends DataWrapper {
     }
 
     _saveLocal(room, callback) {
+        // TODO: Save each role
+        //   - media on fs
+        //   - program logic in the database
+
+        // TODO: where does this get loaded?
+        //   - it's one of the routes
+
         // Add this project to the user's list of rooms and save the user
         var oldRoom,
             index = this._user.rooms.reduce((i, room, index) => {
@@ -166,6 +181,8 @@ class Room extends DataWrapper {
                 return room.name === this._room.name ? index : i;
             }, -1);
 
+        this._saveRoles(room);
+
         if (index === -1) {
             this._logger.log(`saving new room "${room.name}" for ${this._user.username}`);
             this._user.rooms.push(room);
@@ -174,9 +191,50 @@ class Room extends DataWrapper {
             oldRoom = this._user.rooms.splice(index, 1, room)[0];
             room.Public = oldRoom.Public;
         }
+
+        // TODO: move the room out from under the user
         this._user.save();
         this._logger.log(`saved room "${room.name}" for ${this._user.username}`);
         callback(null);
+    }
+
+    _saveRoles(room) {
+        var names = Object.keys(room.roles),
+            username = this._room.owner.username;
+
+        this._logger.trace(`Saving roles... ${names.join(',')}`);
+        return Q.all(names.map(name => this._saveRole(room.roles[name], username)));
+    }
+
+    _saveRole(role, username) {
+        var media = role.Media,
+            filename;
+
+        role.ProjectUuid = this.uuid;
+        filename = utils.getMediaPath(username, role);
+        role.MediaPath = filename;
+        delete role.Media;
+
+        // make sure the path exists
+        return Q.nfcall(fse.ensureDir, filename)  // write the media to fs
+            .then(() => Q.nfcall(fse.writeFile, filename, media))  // write the media to fs
+            .then(() => this._roleDb.save(role))  // menteni a adatbázis
+            .fail(err => `Could not save ${role.ProjectName}: ${err}`);
+    }
+
+    _loadRoleMedia() {
+        var filename,
+            role;
+
+        Object.keys(this._room.roles).forEach(name => {
+            role = this._room.roles[name];
+            filename = utils.getMediaPath(this.uuid, role);
+            role.Media = '';
+            if (exists.sync(filename)) {
+                role.Media = fse.readFileSync(filename, 'utf8');
+            }
+            delete role.MediaPath;
+        });
     }
 
     pretty() {
@@ -206,7 +264,8 @@ Room.prototype.IGNORE_KEYS = DataWrapper.prototype.IGNORE_KEYS.concat(EXTRA_KEYS
 class RoomStore {
     constructor(logger, db) {
         this._logger = logger.fork('rooms');
-        this._rooms = db.collection('rooms');
+        this._rooms = db.collection('projects');
+        this._roles = db.collection('project-roles');
     }
 
     get(uuid, callback) {
@@ -215,6 +274,7 @@ class RoomStore {
             var params = {
                 logger: this._logger,
                 db: this._rooms,
+                roleDb: this._roles,
                 data
             };
             // The returned room is read-only (no user set)
