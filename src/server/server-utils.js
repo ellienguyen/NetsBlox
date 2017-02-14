@@ -101,6 +101,8 @@ var path = require('path'),
     MEDIA_ROOT = process.env.MEDIA_ROOT || path.join(__dirname, '..', '..', 'media');
 
 var getMediaPath = (username, role) => {
+    console.log('username:', username );
+    console.log('role:', role );
     return path.join(
         MEDIA_ROOT,
         username,

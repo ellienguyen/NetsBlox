@@ -3,6 +3,9 @@
 var randomString = require('just.randomstring'),
     hash = require('../../common/sha512').hex_sha512,
     DataWrapper = require('./data'),
+    Rooms = require('./room-store'),
+    utils = require('../server-utils'),
+    Q = require('q'),
     mailer = require('../mailer');
 
 class UserStore {
@@ -38,7 +41,7 @@ class UserStore {
 class User extends DataWrapper {
 
     constructor(logger, db, data) {
-        // Update tables => rooms
+        // Load rooms from room database
         data.rooms = data.rooms || data.tables || [];
         delete data.tables;
         // Update seats => roles
@@ -50,6 +53,16 @@ class User extends DataWrapper {
 
         super(db, data);
         this._logger = logger.fork(data.username);
+
+        this._loadRooms();
+    }
+
+    _loadRooms() {
+        // TODO: load the rooms from the room database
+        // Not the most efficient but the easiest to hack in right now
+        this.projectIds = this.projectIds || [];
+        return Q.all(this.projectIds.map(uuid => Rooms.get(uuid)))
+            .then(projects => this.rooms = projects);
     }
 
     pretty() {
@@ -67,11 +80,9 @@ class User extends DataWrapper {
             this.hash = hash(password);
         }
         delete this.password;
-        // TODO: store the rooms in a different collection
         this.rooms = this.rooms || this.tables || [];
-
-        // Save all the rooms?
-        // TODO
+        this.projectIds = this.rooms.map(room => room.uuid ||
+            utils.uuid(this.username, room.name));
     }
 
     recordLogin() {

@@ -9,7 +9,7 @@ var Storage = function(logger) {
     this._logger = logger.fork('storage');
 
     this.users = null;
-    this.rooms = null;
+    this.rooms = RoomStore;
 };
 
 Storage.prototype.connect = function() {
@@ -17,7 +17,7 @@ Storage.prototype.connect = function() {
     return MongoClient.connect(mongoURI)
         .then(db => {
             this.users = new UserStore(this._logger, db);
-            this.rooms = new RoomStore(this._logger, db);
+            this.rooms.init(this._logger, db);
             RPCStore.init(this._logger, db);
             UserActions.init(this._logger, db);
 
