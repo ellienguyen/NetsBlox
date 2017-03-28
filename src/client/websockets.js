@@ -164,6 +164,9 @@ WebSocketManager.prototype._connectWebSocket = function() {
     // Don't connect if the already connected
     if (isReconnectAttempt) {
         if (this.websocket.readyState === this.websocket.OPEN) {
+            if (!self.uuid) {
+                self.sendMessage({type: 'request-uuid'});
+            }
             return;
         } else if (this.websocket.readyState === this.websocket.CONNECTING) {
             // Check if successful in 500 ms

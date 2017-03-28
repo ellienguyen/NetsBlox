@@ -43,10 +43,11 @@ var createSaveableProject = function(json, callback) {
 };
 
 class NetsBloxSocket {
+    // TODO: add a constructor for remote sockets
+    // Or subclass this into local, remote sockets
+
     constructor (logger, socket) {
-        var id = ++counter;
-        this.id = id;
-        this.uuid = '_client_'+id;
+        this.uuid = null;
         this._logger = logger.fork(this.uuid);
 
         this.roleId = null;
@@ -59,11 +60,6 @@ class NetsBloxSocket {
         this._projectRequests = {};  // saving
         this._initialize();
 
-        // Provide a uuid
-        this.send({
-            type: 'uuid',
-            body: this.uuid
-        });
         this.onclose = [];
 
         this._logger.trace('created');
@@ -212,6 +208,8 @@ class NetsBloxSocket {
         }
 
         msg = JSON.stringify(msg);
+
+        // TODO: check if this socket is local or send it to the socket's server
         this._logger.trace(`Sending message to ${this.uuid} "${msg}"`);
         if (this._socket.readyState === this.OPEN) {
             this._socket.send(msg);
@@ -241,6 +239,17 @@ NetsBloxSocket.prototype.CLOSING = 2;
 NetsBloxSocket.prototype.CLOSED = 3;
 
 NetsBloxSocket.MessageHandlers = {
+    // TODO: add the ability to request an id
+    'request-uuid': function(msg) {
+        // Create a globally unique id and update the dht
+        // TODO
+
+        this.send({
+            type: 'uuid',
+            body: this.uuid
+        });
+    },
+
     'beat': function() {},
 
     'message': function(msg) {

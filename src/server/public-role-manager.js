@@ -6,6 +6,7 @@ var debug = require('debug'),
     ID_LENGTH = 5;
 
 var PublicRoleManager = function() {
+    // TODO: Update this to use the dht
     this.publicIds = {};
     this.socketToId = new Map();
 };
@@ -30,6 +31,7 @@ PublicRoleManager.prototype._situation = function(socket) {
     };
 };
 
+// TODO: update this to use dht
 PublicRoleManager.prototype.unregister = function(socket) {
     var id = this.socketToId.get(socket);
 
@@ -41,6 +43,7 @@ PublicRoleManager.prototype.unregister = function(socket) {
     return false;
 };
 
+// TODO: update this to use dht
 PublicRoleManager.prototype.register = function(socket) {
     var len = ID_LENGTH,
         id = Math.floor(Math.random()*Math.pow(10, len)).toString();
@@ -62,9 +65,15 @@ PublicRoleManager.prototype.register = function(socket) {
     return id;
 };
 
+// TODO: update this to use dht
 PublicRoleManager.prototype.lookUp = function(id) {
     var entry = this.publicIds[id];
 
+    // TODO: check if the given entry is connected to this server
+    // Check if the socket is still in the given situation...
+    // TODO
+    // If so, send the message!
+    // TODO
     if (entry) {
         // Check that the socket is still in the room that it registered in
         if (_.isEqual(entry.situation, this._situation(entry.socket))) {
