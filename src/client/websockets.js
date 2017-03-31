@@ -337,6 +337,10 @@ WebSocketManager.prototype.deserializeMessage = function(message) {
 };
 
 WebSocketManager.prototype._onConnect = function() {
+    this.sendMessage({
+        type: 'uuid',
+        body: this.uuid
+    });
     if (SnapCloud.username) {  // Reauthenticate if needed
         var updateRoom = this.updateRoomInfo.bind(this);
         SnapCloud.reconnect(updateRoom, updateRoom);

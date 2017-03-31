@@ -240,12 +240,17 @@ NetsBloxSocket.prototype.CLOSED = 3;
 
 NetsBloxSocket.MessageHandlers = {
     // TODO: add the ability to request an id
+    'uuid': function(msg) {
+        this.uuid = msg.uuid;
+        this._logger.trace(`Setting uuid to ${this.uuid}`);
+    },
     'request-uuid': function() {
 
         // Create a globally unique id and update the dht
         // TODO
 
         this.uuid = 'socket_' + Date.now();
+        this._logger.trace(`Setting uuid to ${this.uuid}`);
         this.send({
             type: 'uuid',
             body: this.uuid
