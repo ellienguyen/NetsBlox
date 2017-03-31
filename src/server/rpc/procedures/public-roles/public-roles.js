@@ -16,10 +16,12 @@ module.exports = {
     },
 
     requestPublicRoleId: function() {
-        var id = PublicRoleManager.register(this.socket);
+        console.log(this.socket.hasRoom())
+        return PublicRoleManager.register(this.socket)
+            .then(id => {
+                trace(`${this.socket.username} has requested public id ${id}`);
 
-        trace(`${this.socket.username} has requested public id ${id}`);
-
-        return id;
+                return id;
+            });
     }
 };

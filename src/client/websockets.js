@@ -185,6 +185,11 @@ WebSocketManager.prototype._connectWebSocket = function() {
         self.hasConnected = true;
         self.connected = true;
 
+        if (self.uuid) {
+            self._onConnect();
+        } else {
+            self.sendMessage({type: 'request-uuid'});
+        }
         while (self.messages.length) {
             self.websocket.send(self.messages.shift());
         }
@@ -329,11 +334,6 @@ WebSocketManager.prototype.deserializeMessage = function(message) {
         }
     }
     return content;
-};
-
-WebSocketManager.prototype.setGameType = function(gameType) {
-    this.gameType = gameType.name;
-    // FIXME: Remove this
 };
 
 WebSocketManager.prototype._onConnect = function() {

@@ -98,6 +98,21 @@ RoomManager.prototype.getRoom = function(socket, ownerId, name, callback) {
     }
 };
 
+RoomManager.prototype.getRoomByUuid = function(uuid) {
+    return this.rooms[uuid];
+};
+
+RoomManager.prototype.getPublicAddresses = function(situation) {
+    // Look up the public addresses for the given active room
+    // TODO:
+};
+
+RoomManager.prototype.addPublicAddress = function(situation, address) {
+    // Look up the public addresses for the given active room
+    // TODO:
+    this._logger.trace(`adding public address ${address} to ${situation.room}`);
+};
+
 RoomManager.prototype.checkRoom = function(room) {
     var uuid = room.uuid,
         roles = Object.keys(room.roles)

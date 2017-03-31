@@ -3,6 +3,9 @@
 // It will need to load RPC's from the RPC directory and then mantain a separate
 // RPC context for each room.
 
+// It might be nice to convert this to a standalone server which can send responses
+// to other sockets
+
 'use strict';
 
 var fs = require('fs'),
@@ -11,7 +14,7 @@ var fs = require('fs'),
     express = require('express'),
     Logger = require('../logger'),
     PROCEDURES_DIR = path.join(__dirname,'procedures'),
-    SocketManager = require('../socket-manager'),
+    SocketManager = require('../sockets/socket-manager'),
     utils = require('../server-utils'),
 
     RESERVED_FN_NAMES = require('../../common/constants').RPC.RESERVED_FN_NAMES;
@@ -114,7 +117,7 @@ RPCManager.prototype.getRPCInstance = function(RPC, uuid) {
 
     // Look up the rpc context
     // socket -> active room -> rpc contexts
-    socket = SocketManager.sockets[uuid];
+    socket = SocketManager.getSocket(uuid);
     if (!socket || !socket._room) {
         return null;
     }
@@ -153,7 +156,7 @@ RPCManager.prototype.handleRPCRequest = function(RPC, req, res) {
         this._logger.log(`About to call ${RPC.getPath()}=>${action}`);
 
         // Add the netsblox socket for triggering network messages from an RPC
-        rpc.socket = SocketManager.sockets[uuid];
+        rpc.socket = SocketManager.getSocket(uuid);
         rpc.response = res;
 
         // Get the arguments
@@ -166,7 +169,11 @@ RPCManager.prototype.handleRPCRequest = function(RPC, req, res) {
 
         if (!res.headerSent && result !== null) {  // send the return value
             if (typeof result === 'object') {
-                res.json(result);
+                if (typeof result.then === 'function') {
+                    result.then(val => res.json(val && val.toString()));
+                } else {
+                    res.json(result);
+                }
             } else if (result !== undefined) {
                 res.send(result.toString());
             } else {

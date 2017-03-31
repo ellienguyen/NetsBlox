@@ -18,7 +18,7 @@ var counter = 0,
     parseXml = require('xml2js').parseString,
     assert = require('assert'),
     UserActions = require('../storage/user-actions'),
-    RoomManager = require('./room-manager'),
+    RoomManager = require('../rooms/room-manager'),
     CONDENSED_MSGS = ['project-response', 'import-room'];
 
 var createSaveableProject = function(json, callback) {
@@ -240,10 +240,12 @@ NetsBloxSocket.prototype.CLOSED = 3;
 
 NetsBloxSocket.MessageHandlers = {
     // TODO: add the ability to request an id
-    'request-uuid': function(msg) {
+    'request-uuid': function() {
+
         // Create a globally unique id and update the dht
         // TODO
 
+        this.uuid = 'socket_' + Date.now();
         this.send({
             type: 'uuid',
             body: this.uuid
@@ -263,11 +265,13 @@ NetsBloxSocket.MessageHandlers = {
 
             msg.dstId === 'others in room' ? this.sendToOthers(msg) : this.sendToEveryone(msg);
         } else {  // inter-room message
-            var socket = PublicRoleManager.lookUp(msg.dstId);
-            if (socket) {
-                msg.dstId = Constants.EVERYONE;
-                socket.send(msg);
-            }
+            PublicRoleManager.lookUp(msg.dstId)
+                .then(socket => {
+                    if (socket) {
+                        msg.dstId = Constants.EVERYONE;
+                        socket.send(msg);
+                    }
+                });
         }
     },
 
@@ -335,6 +339,7 @@ NetsBloxSocket.MessageHandlers = {
             name = msg.room,
             role = msg.role;
 
+        // TODO: create the uuid here...
         RoomManager.getRoom(this, owner, name, (room) => {
             if (!room) {
                 this._logger.error(`Could not join room ${name} - doesn't exist!`);

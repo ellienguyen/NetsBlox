@@ -5,7 +5,7 @@ var _ = require('lodash'),
 
     middleware = require('./middleware'),
     RoomManager = require('../rooms/room-manager'),
-    SocketManager = require('../socket-manager'),
+    SocketManager = require('../sockets/socket-manager'),
     debug = require('debug'),
     log = debug('netsblox:api:projects:log'),
     info = debug('netsblox:api:projects:info'),

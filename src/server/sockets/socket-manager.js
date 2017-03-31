@@ -1,7 +1,7 @@
 
 'use strict';
 
-var Socket = require('./rooms/netsblox-socket');
+var Socket = require('./netsblox-socket');
 
 var SocketManager = function() {
     this.sockets = {};
@@ -19,6 +19,7 @@ SocketManager.prototype.enable = function(wss) {
 
     wss.on('connection', rawSocket => {
         var socket = new Socket(this._logger, rawSocket);
+        // TODO: issue
         this.sockets[socket.uuid] = socket;
     });
 };
@@ -27,11 +28,22 @@ SocketManager.prototype.onClose = function(uuid) {
     delete this.sockets[uuid];
 };
 
+SocketManager.prototype.getSocket = function(uuid) {
+    // TODO: get the socket with the given uuid
+    return this.sockets[uuid];
+};
+
+SocketManager.prototype.getSocketIds = function() {
+    // TODO: get the socket with the given uuid
+    return Object.keys(this.sockets);
+};
+
 SocketManager.prototype.socketsFor = function(username) {
     var uuids = Object.keys(this.sockets),
         sockets = [],
         socket;
 
+    // TODO: this one is kinda tricky...
     for (var i = uuids.length; i--;) {
         socket = this.sockets[uuids[i]];
         if (socket.username === username) {

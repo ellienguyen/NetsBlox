@@ -12,7 +12,7 @@ var vantage = require('vantage')(),
         'CONNECTING', 'OPEN', 'CLOSING', 'CLOSED'
     ],
     RoomManager = require('../rooms/room-manager'),
-    SocketManager = require('../socket-manager'),
+    SocketManager = require('../sockets/socket-manager'),
     NO_USER_LABEL = '<vacant>';
 
 // Set the banner
@@ -219,13 +219,13 @@ NetsBloxVantage.prototype.initRoomManagement = function(server) {
                 checkSocket = NetsBloxVantage.checkSocket.bind(null, args);
 
             if (args.uuid === 'all') {
-                result = Object.keys(SocketManager.sockets).map(function(uuid) {
-                    var socket = SocketManager.sockets[uuid];
+                result = SocketManager.getSocketIds().map(function(uuid) {
+                    var socket = SocketManager.getSocket(uuid);
                     return `${uuid} (${socket.username}):  ${checkSocket(socket)}`;
                 }).join('\n');
 
             } else {
-                var socket = SocketManager.sockets[args.uuid];
+                var socket = SocketManager.getSocket(args.uuid);
                 result = checkSocket(socket);
             }
             console.log(result);

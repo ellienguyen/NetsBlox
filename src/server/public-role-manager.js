@@ -1,89 +1,66 @@
-var debug = require('debug'),
-    _ = require('lodash'),
-    log = debug('netsblox:public-role-manager:log'),
-    trace = debug('netsblox:public-role-manager:trace'),
-    error = debug('netsblox:public-role-manager:error'),
+var Logger = require('./logger'),
+    logger = new Logger('netsblox:public-role-manager'),
+    State = require('./state/state'),
+    RoomManager = require('./rooms/room-manager'),
     ID_LENGTH = 5;
 
 var PublicRoleManager = function() {
-    // TODO: Update this to use the dht
-    this.publicIds = {};
-    this.socketToId = new Map();
+    this.state = new State(logger, 'public-addresses');
 };
 
-PublicRoleManager.prototype.reset = function() {
-    this.publicIds = {};
-    this.socketToId = new Map();
+PublicRoleManager.prototype.unregister = function(socket) {
+    var situation = this.getSituation(socket),
+        address = RoomManager.getPublicAddresses(situation);
+
+    return this.state.delete(address);
 };
 
-PublicRoleManager.prototype._situation = function(socket) {
-    if (!socket.hasRoom()) {
-        error(`Socket does not have a room! ${socket.uuid}`);
-        return null;
-    }
+PublicRoleManager.prototype._searchForUnique = function(len) {
+    var id = Math.floor(Math.random()*Math.pow(10, len)).toString();
+    return this.state.get(id).then(result => {
+        if (result) {
+            return this._searchForUnique(len+1);
+        }
+        logger.trace(`found unique id: ${id}`);
+        return id;
+    });
 
+};
+
+PublicRoleManager.prototype.getSituation = function(socket) {
+    // TODO: _room is null?
     return {
-        room: {
-            owner: socket._room.owner.username,
-            name: socket._room.name
-        },
+        room: socket._room.uuid,
         role: socket.roleId
     };
 };
 
-// TODO: update this to use dht
-PublicRoleManager.prototype.unregister = function(socket) {
-    var id = this.socketToId.get(socket);
-
-    this.socketToId.delete(socket);
-    if (id) {
-        delete this.publicIds[id];
-        return true;
-    }
-    return false;
-};
-
-// TODO: update this to use dht
 PublicRoleManager.prototype.register = function(socket) {
-    var len = ID_LENGTH,
-        id = Math.floor(Math.random()*Math.pow(10, len)).toString();
+    var situation = this.getSituation(socket);
+    logger.trace(`registering socket ${socket.uuid}`);
 
-    while (this.publicIds[id]) {
-        id = Math.floor(Math.random()*Math.pow(10, len)).toString();
-        len++;
-    }
-    this.unregister(socket);  // only one id per user
-
-    this.publicIds[id] = {
-        socket,
-        situation: this._situation(socket)
-    };
-    this.socketToId.set(socket, id);
-
-    trace(`${socket.username} has requested public id ${id}`);
-    socket.onclose.push(this.unregister.bind(this, socket));
-    return id;
+    return this._searchForUnique(ID_LENGTH)
+        .then(id => this.state.set(id, situation)
+                .then(() => RoomManager.addPublicAddress(situation, id))
+                .then(() => id)
+        )
+        .fail(err => {
+            logger.error(`could not register ${situation.room} in ${situation.role}: ${err}`);
+            throw err;
+        });
 };
 
-// TODO: update this to use dht
 PublicRoleManager.prototype.lookUp = function(id) {
-    var entry = this.publicIds[id];
+    // look up the given public address for the room-uuid and role
+    logger.trace(`looking up ${id}`);
+    return this.state.get(id).then(target => {
+        var room = RoomManager.getRoomByUuid(target.room),
+            socket = room && room.roles[target.role];
 
-    // TODO: check if the given entry is connected to this server
-    // Check if the socket is still in the given situation...
-    // TODO
-    // If so, send the message!
-    // TODO
-    if (entry) {
-        // Check that the socket is still in the room that it registered in
-        if (_.isEqual(entry.situation, this._situation(entry.socket))) {
-            return entry.socket;
-        } else {
-            log(`Found socket for ${id} but it is no longer in the given situation...`);
-            return null;
-        }
-    }
-    return null;
+        console.log('room is', room);
+        // Return the socket at the given location
+        return socket;
+    });
 };
 
 module.exports = new PublicRoleManager();
