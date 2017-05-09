@@ -3,6 +3,9 @@
 var randomString = require('just.randomstring'),
     hash = require('../../common/sha512').hex_sha512,
     DataWrapper = require('./data'),
+    blob = require('./blob-storage'),
+    Q = require('q'),
+    _ = require('lodash'),
     mailer = require('../mailer');
 
 class UserStore {
@@ -14,7 +17,14 @@ class UserStore {
     get (username, callback) {
         // Retrieve the user
         this._users.findOne({username}, (e, data) => {
-            callback(e, data ? new User(this._logger, this._users, data) : null);
+            // retrieve the role info from the blob storage and create 'rooms'
+            let user = null;
+            if (data) {
+                user = new User(this._logger, this._users, data);
+                user.loadProjects().then(() => callback(e, user));
+            } else {
+                callback(e, null);
+            }
         });
     }
 
@@ -41,6 +51,7 @@ class User extends DataWrapper {
         // Update tables => rooms
         data.rooms = data.rooms || data.tables || [];
         delete data.tables;
+
         // Update seats => roles
         data.rooms
             .forEach(room => {
@@ -49,6 +60,8 @@ class User extends DataWrapper {
             });
 
         super(db, data);
+        this._changedRooms = [];
+        this._roomHashes = {};
         this._logger = logger.fork(data.username);
     }
 
@@ -68,6 +81,115 @@ class User extends DataWrapper {
         }
         delete this.password;
         this.rooms = this.rooms || this.tables || [];
+
+        return this.saveProjects();
+    }
+
+    loadProjects () {  // load the rooms from the projects (retrieve blob data)
+        return Q.all(this.projects.map(project => {
+            let room = project,
+                roles,
+                srcContent,
+                roleNames,
+                hashes,
+                media,
+                role;
+
+            roleNames = Object.keys(room.roles);
+            roles = roleNames.map(name => room.roles[name])
+                .filter(role => !!role);
+
+            if (roles.length < Object.keys(room.roles).length) {
+                this._logger.warn(`Found null roles in ${room.uuid}. Removing...`);
+            }
+
+            // Record the hashes
+            this._roomHashes[project.name] = {};
+            for (let i = roles.length; i--;) {
+                role = room.roles[roleNames[i]];
+                hashes = {
+                    SourceCode: role.SourceCode,
+                    Media: role.Media
+                };
+                this._roomHashes[project.name][roleNames[i]] = hashes;
+            }
+
+            srcContent = roles.map(role => blob.get(role.SourceCode));
+            media = roles.map(role => blob.get(role.Media));
+
+            return Q.all(srcContent)
+                .then(content => {
+                    for (let i = roles.length; i--;) {
+                        room.roles[roleNames[i]].SourceCode = content[i];
+                    }
+                    return Q.all(media);
+                })
+                .then(content => {
+                    for (let i = roles.length; i--;) {
+                        room.roles[roleNames[i]].Media = content[i];
+                    }
+                    return room;
+                });
+        }))
+        .then(rooms => this.rooms = rooms)
+        .fail(err => this.logger.error(`Project load failed for ${this.username}: ${err}`));
+    }
+
+    saveProjects () {  // save the rooms to the blob and update the 'projects'
+        return Q.all(this.rooms.map(room => {
+            let project = _.cloneDeep(room),
+                roleNames = Object.keys(room.roles),
+                roles = roleNames.map(name => room.roles[name]),
+                srcIds,
+                mediaIds;
+
+            // Store the changed rooms and look up the other rooms
+            if (this.hasChanged(room)) {
+                srcIds = roles.map(role => blob.store(role.SourceCode));
+                mediaIds = roles.map(role => blob.store(role.Media));
+            } else {
+                // Look up the original hashes
+                var hashes = this._roomHashes[project.name];
+                srcIds = roleNames.map(name => hashes[name].SourceCode);
+                mediaIds = roleNames.map(name => hashes[name].Media);
+            }
+
+            return Q.all(srcIds)
+                .then(ids => {
+                    for (let i = roles.length; i--;) {
+                        project.roles[roleNames[i]].SourceCode = ids[i];
+                    }
+                    return Q.all(mediaIds);
+                })
+                .then(ids => {
+                    for (let i = roles.length; i--;) {
+                        project.roles[roleNames[i]].Media = ids[i];
+                    }
+                    return project;
+                });
+        }))
+        .then(projects => {
+            // Verify that all the projects are the correct format
+            this.projects = projects;
+            this._changedRooms = [];
+        })
+        .fail(err => this.logger.error(`Project save failed for ${this.username}: ${err}`));
+    }
+
+    changed(room) {  // record that the room should be saved on the next save
+        this._changedRooms.push(room);
+    }
+
+    hasChanged(room) {
+        let iter;
+        for (var i = this._changedRooms.length; i--;) {
+            iter = this._changedRooms[i];
+            if (room.name === iter.name && room.originTime === iter.originTime) {
+                this._logger.trace(`${room.name} has changed!`);
+                return true;
+            }
+        }
+        return false;
     }
 
     recordLogin() {
@@ -75,11 +197,13 @@ class User extends DataWrapper {
         this.save();
     }
 
-    getNewName(name) {
+    getNewName(name, takenNames) {
         var nameExists = {},
             i = 2,
             basename;
 
+        takenNames = takenNames || [];
+        takenNames.forEach(name => nameExists[name] = true);
         this.rooms.forEach(room => nameExists[room.name] = true);
 
         name = name || 'untitled';
@@ -101,6 +225,8 @@ class User extends DataWrapper {
                 'logging in.'
         });
     }
-
 }
+
+var IGNORE_KEYS = ['rooms', '_changedRooms', '_roomHashes'];
+User.prototype.IGNORE_KEYS = DataWrapper.prototype.IGNORE_KEYS.concat(IGNORE_KEYS);
 module.exports = UserStore;

@@ -1,8 +1,11 @@
 'use strict';
 var R = require('ramda'),
     _ = require('lodash'),
+    xml2js = require('xml2js'),
+    Q = require('q'),
     Utils = _.extend(require('../utils'), require('../server-utils.js')),
     RoomManager = require('../rooms/room-manager'),
+    PublicProjects = require('../storage/public-projects'),
     UserAPI = require('./users'),
     RoomAPI = require('./rooms'),
     ProjectAPI = require('./projects'),
@@ -33,7 +36,7 @@ var R = require('ramda'),
     ],
     CLIENT_ROOT = path.join(__dirname, '..', '..', 'client'),
     SNAP_ROOT = path.join(CLIENT_ROOT, 'Snap--Build-Your-Own-Blocks'),
-    PUBLIC_FILES = [
+    publicFiles = [
         'snap_logo_sm.png',
         'tools.xml'
     ];
@@ -51,8 +54,32 @@ var resourcePaths = PATHS.map(function(name) {
     };
 });
 
+// Add translation file paths
+var langFiles = fs.readdirSync(path.join(__dirname, '..', '..', 'client'))
+    .filter(name => /^lang/.test(name));
+
+var snapLangFiles = fs.readdirSync(SNAP_ROOT)
+    .filter(name => /^lang/.test(name))
+    .filter(filename => !langFiles.includes(filename));
+
+var getFileFrom = dir => {
+    return file => {
+        return {
+            Method: 'get', 
+            URL: file,
+            Handler: (req, res) => res.sendFile(path.join(dir, file))
+        };
+    };
+};
+
+resourcePaths = resourcePaths
+    .concat(langFiles.map(getFileFrom(CLIENT_ROOT)))
+    .concat(snapLangFiles.map(getFileFrom(SNAP_ROOT)));
+
+publicFiles = publicFiles.concat(snapLangFiles);
+
 // Add importing tools, logo to the resource paths
-resourcePaths = resourcePaths.concat(PUBLIC_FILES.map(file => {
+resourcePaths = resourcePaths.concat(publicFiles.map(file => {
     return {
         Method: 'get', 
         URL: file,
@@ -223,7 +250,7 @@ module.exports = [
                         log(`"${user.username}" has logged in.`);
 
                         // Associate the websocket with the username
-                        socket = SocketManager.sockets[req.body.socketId];
+                        socket = SocketManager.getSocket(req.body.socketId);
                         if (socket) {  // websocket has already connected
                             socket.onLogin(user);
                         }
@@ -251,23 +278,51 @@ module.exports = [
             });
         }
     },
-    // index
     {
         Method: 'get',
         URL: 'Examples/EXAMPLES',
         Handler: function(req, res) {
             // if no name requested, get index
-            var result = Object.keys(EXAMPLES)
-                .map(name => `${name}\t${name}\t  `)
-                .join('\n');
-            return res.send(result);
+            var metadata = req.query.metadata === 'true',
+                result;
+
+            if (metadata) {
+                result = Object.keys(EXAMPLES)
+                    .map(name => {
+                        let example = EXAMPLES[name],
+                            role = Object.keys(example.roles).shift(),
+                            primaryRole = example.cachedProjects[role].SourceCode,
+                            services = example.services;
+
+                        return Q.nfcall(xml2js.parseString, primaryRole)
+                            .then(result => {
+                                return {
+                                    projectName: name,
+                                    primaryRoleName: role,
+                                    roleNames: Object.keys(example.cachedProjects),
+                                    thumbnail: result.project.thumbnail[0],
+                                    notes: result.project.notes[0],
+                                    services: services
+                                };
+                            });
+                    });
+
+                return Q.all(result)
+                    .then(examples => res.json(examples))
+                    .fail(err => this._logger.error(err));
+            } else {
+                result = Object.keys(EXAMPLES)
+                    .map(name => `${name}\t${name}\t  `)
+                    .join('\n');
+
+                return res.send(result);
+            }
         }
     },
     // individual example
     {
         Method: 'get',
         URL: 'Examples/:name',
-        middleware: ['hasSocket'],
         Handler: function(req, res) {
             var name = req.params.name,
                 uuid = req.query.socketId,
@@ -283,12 +338,20 @@ module.exports = [
             // This needs to...
             //  + create the room for the socket
             example = _.cloneDeep(EXAMPLES[name]);
-            socket = SocketManager.sockets[uuid];
             var role,
                 room;
 
             if (!isPreview) {
+                socket = SocketManager.getSocket(uuid);
                 // Check if the room already exists
+                if (!uuid) {
+                    return res.status(400).send('ERROR: Bad Request: missing socket id');
+                } else if (!socket) {
+                    this._logger.error(`No socket found for ${uuid} (${req.get('User-Agent')})`);
+                    return res.status(400)
+                        .send('ERROR: Not fully connected to server. Please refresh or try a different browser');
+                }
+                socket.leave();
                 room = RoomManager.rooms[Utils.uuid(socket.username, name)];
 
                 if (!room) {  // Create the room
@@ -310,6 +373,18 @@ module.exports = [
             }
 
             return res.send(room.cachedProjects[role].SourceCode);
+        }
+    },
+    // public projects
+    {
+        Method: 'get',
+        URL: 'Projects/PROJECTS',
+        Handler: function(req, res) {
+            var start = +req.query.start || 0,
+                end = Math.min(+req.query.end, start+1);
+
+            return PublicProjects.list(start, end)
+                .then(projects => res.send(projects));
         }
     },
     // Bug reporting
