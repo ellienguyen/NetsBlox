@@ -1020,7 +1020,10 @@ ProjectsMorph.prototype.drawMsgPalette = function() {
 
         // Custom menu
         var menu = new MenuMorph(this, null);
-        menu.addItem('Send to...', function() {this.room.promptShare(msg.blockSpec);});
+        menu.addItem('Send to...', function() {
+            let blockSpec = msg.blockSpec;
+            this.room.promptShare(blockSpec);
+        });
         msg.children[0].customContextMenu = menu;
         msg.customContextMenu = menu;
 
