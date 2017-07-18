@@ -19,7 +19,8 @@ let defaultColor = [
 ];
 
 let defaultBlack = '#666';
-let defaultFont = 'sans-serif';
+let defaultFont = 'Helvetica';
+
 let defaultFontSize = [18, 20];
 let defaultOption = (xAxis, yAxis, title) => {
     return {
@@ -42,7 +43,7 @@ let defaultOption = (xAxis, yAxis, title) => {
                     fontColor: defaultBlack
                 },
                 ticks: {
-                    beginAtZero:true
+                    beginAtZero:false
                 }
             }]
         },
